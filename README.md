@@ -1,0 +1,1 @@
+# flask-class-based-views

@@ -1,101 +1,110 @@
 from flask import Flask, jsonify
 from flask.views import MethodView
-from dataclasses import dataclass
 from flask_sqlalchemy import SQLAlchemy
 from flask import request
+from flask_marshmallow import Marshmallow
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite"
 
-# MODELS
-
-
 db = SQLAlchemy(app)
+ma = Marshmallow(app)
 
-# MODELS
-@dataclass
+"""
+    Models and Schemas
+"""
+
+
 class User(db.Model):
-    id: int
-    email: str
-
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, unique=True, nullable=False)
     email = db.Column(db.String, unique=True, nullable=False)
 
 
-@dataclass
 class Publications(db.Model):
-    id: int
-    title: str
-
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
 
 
-@dataclass
+class PublicationsSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Publications
+
+
 class Stories(db.Model):
-    id: int
-    title: str
-
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
+    content = db.Column(db.Text, nullable=True)
 
 
-@dataclass
+class StoriesSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Stories
+
+
 class StoryCategories(db.Model):
-    id: int
-    title: str
-
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
 
 
-@dataclass
+class StoryCategoriesSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = StoryCategories
+
+
 class UserBookmarks(db.Model):
-    id: int
-    # title: str
-
     id = db.Column(db.Integer, primary_key=True)
     # title = db.Column(db.String, nullable=False)
 
 
-@dataclass
+class UserBookmarksSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = UserBookmarks
+
+
 class Podcasts(db.Model):
-    id: int
-    title: str
-
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
 
 
-@dataclass
+class PodcastsSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Podcasts
+
+
 class EditorsChoice(db.Model):
-    id: int
-    # title: str
-
     id = db.Column(db.Integer, primary_key=True)
     # title = db.Column(db.String, nullable=False)
 
 
-@dataclass
+class EditorsChoiceSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = EditorsChoice
+
+
 class Sections(db.Model):
-    id: int
-    # title: str
-
     id = db.Column(db.Integer, primary_key=True)
     # title = db.Column(db.String, nullable=False)
 
 
-@dataclass
-class ContentSections(db.Model):
-    id: int
-    title: str
+class SectionsSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Sections
 
+
+class ContentSections(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
 
 
-# Decorators
+class ContentSectionsSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = ContentSections
+
+
+"""
+    Decorators
+"""
 
 
 def user_required(f):
@@ -118,76 +127,100 @@ def admin_required(f):
     return decorator
 
 
-# Base API Views
-class PublicListDetailView(MethodView):
-    model = None
+class BaseView(MethodView):
+    _model = None
+    _schema = None
 
+    def __init__(self):
+        # If _schema is not declared when extending this class, try to find a class with 'Schema' sulfix.
+        # Ex: Stories -> StoriesSchema
+        # This is handy because we can declare only the _model and it will try find its related schema class.
+        if self._schema is None:
+            _cls_name = f"{self._model.__name__}Schema"
+            self._schema = globals()[_cls_name]
+
+
+"""
+    Base API Views
+"""
+
+
+class PublicListDetailView(BaseView):
     def get(self, entry_id):
-        if entry_id is None:
-            result = self.model.query.all()
+        # Handles any '?fields=' params received in the request - Ex: /stories/?fields=title,id
+        fields = request.args.get("fields")
+        if fields:
+            schema = self._schema(only=fields.split(","))
         else:
-            result = self.model.query.get(entry_id)
-        return jsonify(result)
+            schema = self._schema()
+
+        # Query database and return data
+        if entry_id is None:
+            result = self._model.query.all()
+            return jsonify(schema.dump(result, many=True))
+        else:
+            result = self._model.query.get(entry_id)
+            return jsonify(schema.dump(result))
 
 
-class UserAuthCUDView(MethodView):
-    model = None
+class UserAuthCUDView(BaseView):
     decorators = [user_required]
 
     def post(self):
+        schema = self._schema()
         # create a new entry
-        new_entry = self.model(**request.get_json())
+        new_entry = self._model(**request.get_json())
         db.session.add(new_entry)
         db.session.commit()
-        return "OK"
+        return jsonify(schema.dump(new_entry))
 
     def delete(self, entry_id):
         # delete a single entry
-        entry = self.model.query.get(entry_id)
+        entry = self._model.query.get(entry_id)
         db.session.delete(entry)
         db.session.commit()
-        return "OK"
+        return {"msg": "Entry successfully deleted."}, 200
 
     def put(self, entry_id):
         # update a single entry
-        pass
+        raise NotImplementedError
 
 
-class AdminCrudView(UserAuthCUDView):
+class AdminCUDView(UserAuthCUDView):
     decorators = [admin_required]
 
 
 # REST APIs
 class PublicationsAPI(UserAuthCUDView, PublicListDetailView):
-    model = Publications
+    _model = Publications
 
 
 class StoriesAPI(UserAuthCUDView, PublicListDetailView):
-    model = Stories
+    _model = Stories
 
 
 class UserBookmarksAPI(UserAuthCUDView, PublicListDetailView):
-    model = UserBookmarks
+    _model = UserBookmarks
 
 
-class PodcastsAPI(AdminCrudView, PublicListDetailView):
-    model = Podcasts
+class PodcastsAPI(AdminCUDView, PublicListDetailView):
+    _model = Podcasts
 
 
 class StoryCategoriesAPI(UserAuthCUDView, PublicListDetailView):
-    model = StoryCategories
+    _model = StoryCategories
 
 
-class EditorsChoiceAPI(AdminCrudView, PublicListDetailView):
-    model = EditorsChoice
+class EditorsChoiceAPI(AdminCUDView, PublicListDetailView):
+    _model = EditorsChoice
 
 
-class SectionsAPI(AdminCrudView, PublicListDetailView):
-    model = Sections
+class SectionsAPI(AdminCUDView, PublicListDetailView):
+    _model = Sections
 
 
-class ContentSectionsAPI(AdminCrudView, PublicListDetailView):
-    model = ContentSections
+class ContentSectionsAPI(AdminCUDView, PublicListDetailView):
+    _model = ContentSections
 
 
 # fmt: off
@@ -196,6 +229,7 @@ def register_api(view, endpoint, url):
     view_func = view.as_view(endpoint)
     app.add_url_rule(url, defaults={'entry_id': None}, view_func=view_func, methods=['GET',])
     app.add_url_rule(url, view_func=view_func, methods=['POST',])
+    
     # Creates a rule like: '/podcasts/<int:entry_id>'
     app.add_url_rule(f'{url}<int:entry_id>', view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
 
@@ -209,6 +243,9 @@ register_api(StoryCategoriesAPI, 'story_categories_api', '/categories/')
 register_api(EditorsChoiceAPI, 'editors_choice_api', '/editors-choice/')
 register_api(SectionsAPI, 'sections_api', '/sections/')
 register_api(ContentSectionsAPI, 'content_sections_api', '/content-sections/')
+
+
+# If we weren't using the custom register_api() function, this is how we would go about registering each of our API's:
 
 # user_view = PublicationsAPI.as_view('publications_api')
 # app.add_url_rule('/publications/', defaults={'entry_id': None}, view_func=user_view, methods=['GET',])

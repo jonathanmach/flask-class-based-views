@@ -189,10 +189,12 @@ class AdminCUDView(UserAuthCUDView):
 
 """
     APIs
+    Keep in mind that we can override any method (GET, POST, etc) if necessary
 """
 
 
 class PublicationsAPI(UserAuthCUDView, PublicListReadView):
+
     _model = Publications
 
 

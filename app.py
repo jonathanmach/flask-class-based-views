@@ -248,7 +248,7 @@ register_api(SectionsAPI, 'sections_api', '/sections/')
 register_api(ContentSectionsAPI, 'content_sections_api', '/content-sections/')
 
 
-# If we weren't using the custom register_api() function, this is how we would go about registering each of our API's:
+# If we weren't using the custom register_api() function, this is how we would go about registering each of our APIs:
 
 # user_view = PublicationsAPI.as_view('publications_api')
 # app.add_url_rule('/publications/', defaults={'entry_id': None}, view_func=user_view, methods=['GET',])

@@ -132,7 +132,7 @@ class BaseView(MethodView):
 
     def __init__(self):
         """
-        If _schema is not declared when extending this class, try to find a class with 'Schema' sulfix.
+        If _schema is not declared when extending this class, try to find a class with 'Schema' suffix.
         Ex: Stories -> StoriesSchema
         This is handy because we can declare only the _model and it will try find its related schema class."""
         if self._schema is None:

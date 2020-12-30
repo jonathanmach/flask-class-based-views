@@ -2,7 +2,7 @@
 
 Using Flask Pluggable Views to create a flexible and extensible API
 
-This is the repository used on my [Generic REST API with Flask Class-Based Views](https://jonathanmachado.me/articles/flask-generic-api-with-plugabble-views) article.
+This is the repository used on my [Generic REST API with Flask Class-Based Views](https://jonathanmachado.me/articles/flask-generic-api-with-pluggable-views) article.
 
 ### Article summary
 

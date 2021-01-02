@@ -127,17 +127,17 @@ def admin_required(f):
 
 
 class BaseView(MethodView):
-    _model = None
-    _schema = None
+    model = None
+    schema = None
 
     def __init__(self):
         """
-        If _schema is not declared when extending this class, try to find a class with 'Schema' suffix.
+        If schema is not declared when extending this class, try to find a class with 'Schema' suffix.
         Ex: Stories -> StoriesSchema
-        This is handy because we can declare only the _model and it will try find its related schema class."""
-        if self._schema is None:
-            _cls_name = f"{self._model.__name__}Schema"
-            self._schema = globals()[_cls_name]
+        This is handy because we can declare only the model and it will try find its related schema class."""
+        if self.schema is None:
+            _cls_name = f"{self.model.__name__}Schema"
+            self.schema = globals()[_cls_name]
 
 
 class PublicListReadView(BaseView):
@@ -145,18 +145,18 @@ class PublicListReadView(BaseView):
         # Handle any '?fields=' params received in the request - Ex: /stories/?fields=title,id
         fields = request.args.get("fields")
         if fields:
-            schema = self._schema(only=fields.split(","))
+            schema = self.schema(only=fields.split(","))
         else:
-            schema = self._schema()
+            schema = self.schema()
 
         # Query database and return data
         if entry_id is None:
             # Return list of all entries
-            result = self._model.query.all()
+            result = self.model.query.all()
             return jsonify(schema.dump(result, many=True))
         else:
             # Return a single object
-            result = self._model.query.get(entry_id)
+            result = self.model.query.get(entry_id)
             return jsonify(schema.dump(result))
 
 
@@ -165,15 +165,15 @@ class UserAuthCUDView(BaseView):
 
     def post(self):
         # create a new entry
-        new_entry = self._model(**request.get_json())
+        new_entry = self.model(**request.get_json())
         db.session.add(new_entry)
         db.session.commit()
-        schema = self._schema()
+        schema = self.schema()
         return jsonify(schema.dump(new_entry))
 
     def delete(self, entry_id):
         # delete a single entry
-        entry = self._model.query.get(entry_id)
+        entry = self.model.query.get(entry_id)
         db.session.delete(entry)
         db.session.commit()
         return {"msg": "Entry successfully deleted."}, 200
@@ -195,35 +195,35 @@ class AdminCUDView(UserAuthCUDView):
 
 class PublicationsAPI(UserAuthCUDView, PublicListReadView):
 
-    _model = Publications
+    model = Publications
 
 
 class StoriesAPI(UserAuthCUDView, PublicListReadView):
-    _model = Stories
+    model = Stories
 
 
 class UserBookmarksAPI(UserAuthCUDView, PublicListReadView):
-    _model = UserBookmarks
+    model = UserBookmarks
 
 
 class PodcastsAPI(AdminCUDView, PublicListReadView):
-    _model = Podcasts
+    model = Podcasts
 
 
 class StoryCategoriesAPI(UserAuthCUDView, PublicListReadView):
-    _model = StoryCategories
+    model = StoryCategories
 
 
 class EditorsChoiceAPI(AdminCUDView, PublicListReadView):
-    _model = EditorsChoice
+    model = EditorsChoice
 
 
 class SectionsAPI(AdminCUDView, PublicListReadView):
-    _model = Sections
+    model = Sections
 
 
 class ContentSectionsAPI(AdminCUDView, PublicListReadView):
-    _model = ContentSections
+    model = ContentSections
 
 
 # fmt: off
